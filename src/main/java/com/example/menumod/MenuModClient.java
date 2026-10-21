@@ -1,14 +1,24 @@
 package com.example.menumod;
 
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
+import java.time.LocalDate;
+
 public class MenuModClient implements ClientModInitializer {
     public static KeyBinding OPEN;
+
+    /** Moment startu tej sesji gry (do zakładki Profil). */
+    public static final long SESSION_START = System.currentTimeMillis();
+
+    private static boolean prevBind;
+    private static int ticks;
+    private static int saveCounter;
 
     @Override
     public void onInitializeClient() {
@@ -25,6 +35,26 @@ public class MenuModClient implements ClientModInitializer {
             while (OPEN.wasPressed()) {
                 client.setScreen(new MenuScreen());
             }
+
+            // bind modułu "Brak cieni"
+            int key = MenuConfig.I.noShadowsKey;
+            boolean down = key > 0 && InputUtil.isKeyPressed(client.getWindow().getHandle(), key);
+            if (down && !prevBind && client.currentScreen == null && client.world != null) {
+                NoShadows.toggle(client);
+            }
+            prevBind = down;
+
+            // licznik czasu gry (sekundy, per dzień)
+            if (client.world != null && ++ticks >= 20) {
+                ticks = 0;
+                MenuConfig.I.playSeconds.merge(LocalDate.now().toString(), 1L, Long::sum);
+                if (++saveCounter >= 30) {
+                    saveCounter = 0;
+                    MenuConfig.save();
+                }
+            }
         });
+
+        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> MenuConfig.save());
     }
 }
