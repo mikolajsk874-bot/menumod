@@ -17,7 +17,8 @@ public class MenuConfig {
     public int guiColor = 0xFF3B82F6;
     public boolean rounded = true;
 
-    public boolean light = false; // tryb jasny
+    public int theme = 0;          // 0 = ciemny, 1 = jasny, 2 = podstawowy
+    public boolean textShadow = true; // cień za tekstem
     public boolean sounds = true;
 
     // moduły
@@ -26,6 +27,11 @@ public class MenuConfig {
     // 0 = wyłącz cienie bloków i bytów, 1 = tylko cienie bytów, 2 = tylko cienie bloków
     public int shadowMode = 0;
     public boolean noEquipAnim = false; // brak animacji wyciągania przedmiotu
+
+    // HUD
+    public boolean hudOn = false;
+    public int hudX = 4, hudY = 4;
+    public boolean hudXYZ = true, hudFacing = true, hudFps = true, hudPing = true, hudTps = true;
 
     // profil
     public List<String> tags = new ArrayList<>();

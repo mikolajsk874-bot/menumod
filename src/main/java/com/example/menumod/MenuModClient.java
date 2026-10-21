@@ -4,6 +4,8 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
@@ -53,6 +55,13 @@ public class MenuModClient implements ClientModInitializer {
                     MenuConfig.save();
                 }
             }
+        });
+
+        HudRenderCallback.EVENT.register((ctx, tickCounter) -> {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            if (!MenuConfig.I.hudOn || mc.player == null || mc.options.hudHidden) return;
+            if (mc.currentScreen instanceof HudEditScreen) return;
+            Hud.draw(ctx, mc, MenuConfig.I.hudX, MenuConfig.I.hudY);
         });
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> MenuConfig.save());
