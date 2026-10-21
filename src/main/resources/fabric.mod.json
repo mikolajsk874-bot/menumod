@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "menumod",
+  "version": "${version}",
+  "name": "Menu Mod",
+  "description": "Proste menu GUI z zakładkami Mody i Profil.",
+  "authors": ["Ty"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["pl.menumod.MenuModClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.4",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
