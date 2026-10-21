@@ -2,23 +2,17 @@
   "schemaVersion": 1,
   "id": "menumod",
   "version": "${version}",
-  "name": "Mod Menu",
-  "description": "Jedno menu na wszystko: moduły, własny HUD, profil i ustawienia w zaokrąglonym stylu. Naciśnij Prawy Shift i ustaw grę po swojemu.",
-  "authors": ["mikolajsk874-bot"],
+  "name": "Menu Mod",
+  "description": "Menu z zakładkami: Mody, Profil, Ustawienia.",
+  "authors": ["Ty"],
   "license": "MIT",
-  "icon": "assets/menumod/icon.png",
   "environment": "client",
   "entrypoints": {
-    "client": ["com.example.menumod.MenuModClient"]
+    "client": ["pl.menumod.MenuModClient"]
   },
-  "mixins": [
-    {
-      "config": "menumod.mixins.json",
-      "environment": "client"
-    }
-  ],
+  "mixins": ["menumod.mixins.json"],
   "depends": {
-    "fabricloader": ">=0.16.10",
+    "fabricloader": ">=0.16.0",
     "minecraft": "~1.21.4",
     "java": ">=21",
     "fabric-api": "*"
