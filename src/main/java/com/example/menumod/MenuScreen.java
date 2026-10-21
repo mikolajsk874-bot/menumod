@@ -31,16 +31,25 @@ public class MenuScreen extends Screen {
     static final int W = 440, H = 280, SB = 112;
     static final int ITEM_H = 30, ITEM_PITCH = 34, ITEM_Y0 = 40;
 
-    // kolory
-    static final int BG = 0xF2101318;
-    static final int SIDE = 0xFF161A20;
-    static final int CARD = 0xFF1B2027;
-    static final int CARD_HOVER = 0xFF242B34;
-    static final int INSET = 0xFF14181D;
-    static final int TEXT = 0xFFFFFFFF;
-    static final int DIM = 0xFF8A94A3;
-    static final int OFF = 0xFF39414C;
-    static final int POPUP = 0xFF161A20;
+    // kolory (zależne od motywu, ustawiane w applyTheme)
+    static int BG, SIDE, CARD, CARD_HOVER, INSET, TEXT, DIM, OFF, OFF_HOVER, POPUP, FIELD, BORDER, HOVER_ITEM, DIVIDER;
+    static final int WHITE = 0xFFFFFFFF;
+
+    // dźwięki menu (na stałe, nie do zmiany w configu)
+    static final String OPEN_SOUND = "minecraft:ui.toast.in";
+    static final String CLICK_SOUND = "minecraft:ui.button.click";
+
+    static void applyTheme(boolean light) {
+        if (light) {
+            BG = 0xF2F4F6F9; SIDE = 0xFFE6EAF0; CARD = 0xFFFFFFFF; CARD_HOVER = 0xFFEDF0F5;
+            INSET = 0xFFECEFF4; TEXT = 0xFF1B2027; DIM = 0xFF6B7684; OFF = 0xFFC5CCD6; OFF_HOVER = 0xFFB4BCC8;
+            POPUP = 0xFFFFFFFF; FIELD = 0xFFEDF0F5; BORDER = 0xFFD2D8E0; HOVER_ITEM = 0x14000000; DIVIDER = 0x22000000;
+        } else {
+            BG = 0xF2101318; SIDE = 0xFF161A20; CARD = 0xFF1B2027; CARD_HOVER = 0xFF242B34;
+            INSET = 0xFF14181D; TEXT = 0xFFFFFFFF; DIM = 0xFF8A94A3; OFF = 0xFF39414C; OFF_HOVER = 0xFF48515E;
+            POPUP = 0xFF161A20; FIELD = 0xFF0F1318; BORDER = 0xFF2A313B; HOVER_ITEM = 0x18FFFFFF; DIVIDER = 0x22FFFFFF;
+        }
+    }
 
     // geometria popupu z pickerem
     static final int PW = 188, PH = 154;
@@ -57,6 +66,7 @@ public class MenuScreen extends Screen {
     private int accent = 0xFF3B82F6;
     private int scroll = 0;
     private int playersMax = 0;
+    private int modView = 0; // 0 = lista modów, 1 = ustawienia cieni
 
     // picker koloru
     private boolean pickerOpen, hexFocused, bindingKey;
@@ -67,7 +77,8 @@ public class MenuScreen extends Screen {
     public MenuScreen() {
         super(Text.literal("MenuMod"));
         selY = ITEM_Y0 + tab * ITEM_PITCH;
-        play(MenuConfig.I.openSound, 1.0f);
+        applyTheme(MenuConfig.I.light);
+        play(OPEN_SOUND, 1.0f);
     }
 
     // ------------------------------------------------------------ dźwięk
@@ -140,18 +151,30 @@ public class MenuScreen extends Screen {
         return MenuConfig.I.rounded;
     }
 
-    /** Zaokrąglony prostokąt (bez nakładania się pikseli, więc działa z przezroczystością). */
+    /** Zaokrąglony prostokąt z wygładzonymi rogami (bez nakładania pikseli, działa z przezroczystością). */
     static void rr(DrawContext c, int x, int y, int w, int h, int r, int col) {
         r = Math.min(r, Math.min(w, h) / 2);
         if (!rounded() || r <= 0) {
             c.fill(x, y, x + w, y + h, col);
             return;
         }
+        int a = col >>> 24;
         for (int i = 0; i < r; i++) {
             double dy = r - i - 0.5;
-            int inset = r - (int) Math.round(Math.sqrt(r * r - dy * dy));
-            c.fill(x + inset, y + i, x + w - inset, y + i + 1, col);
-            c.fill(x + inset, y + h - 1 - i, x + w - inset, y + h - i, col);
+            double edge = r - Math.sqrt(r * r - dy * dy);
+            int full = (int) Math.ceil(edge);
+            c.fill(x + full, y + i, x + w - full, y + i + 1, col);
+            c.fill(x + full, y + h - 1 - i, x + w - full, y + h - i, col);
+            if (full > 0) {
+                int pa = (int) (a * (full - edge));
+                if (pa > 0) {
+                    int pc = alpha(col, pa);
+                    c.fill(x + full - 1, y + i, x + full, y + i + 1, pc);
+                    c.fill(x + w - full, y + i, x + w - full + 1, y + i + 1, pc);
+                    c.fill(x + full - 1, y + h - 1 - i, x + full, y + h - i, pc);
+                    c.fill(x + w - full, y + h - 1 - i, x + w - full + 1, y + h - i, pc);
+                }
+            }
         }
         c.fill(x, y + r, x + w, y + h - r, col);
     }
@@ -179,8 +202,8 @@ public class MenuScreen extends Screen {
     }
 
     private void toggle(DrawContext c, int x, int y, boolean on) {
-        rr(c, x, y, 28, 14, 7, on ? accent : OFF);
-        rr(c, on ? x + 16 : x + 2, y + 2, 10, 10, 5, TEXT);
+        rr(c, x, y, 34, 18, 9, on ? accent : OFF);
+        rr(c, on ? x + 19 : x + 3, y + 3, 12, 12, 6, WHITE);
     }
 
     private void small(DrawContext c, String s, int x, int y, int col, float scale) {
@@ -188,12 +211,12 @@ public class MenuScreen extends Screen {
         m.push();
         m.translate(x, y, 0);
         m.scale(scale, scale, 1f);
-        c.drawText(textRenderer, s, 0, 0, col, false);
+        c.drawText(textRenderer, s, 0, 0, col, true);
         m.pop();
     }
 
     private void centered(DrawContext c, String s, int x, int y, int w, int col) {
-        c.drawText(textRenderer, s, x + (w - textRenderer.getWidth(s)) / 2, y, col, false);
+        c.drawText(textRenderer, s, x + (w - textRenderer.getWidth(s)) / 2, y, col, true);
     }
 
     private boolean hov(int x, int y, int w, int h) {
@@ -211,7 +234,7 @@ public class MenuScreen extends Screen {
     private int cy() { return py + 36; }
 
     private int setRowY(int i) { return cy() + 2 + i * 32; }
-    private int bindRowY() { return cy() + 114; }
+    private int bindRowY() { return cy() + 150; }
 
     private int ppx() { return px + W - PW - 14; }
     private int ppy() { return py + 68; }
@@ -261,6 +284,7 @@ public class MenuScreen extends Screen {
 
     @Override
     public void render(DrawContext c, int mouseX, int mouseY, float delta) {
+        applyTheme(MenuConfig.I.light);
         long now = Util.getMeasuringTimeMs();
         float dt = Math.min(0.1f, (now - lastFrame) / 1000f);
         lastFrame = now;
@@ -295,14 +319,14 @@ public class MenuScreen extends Screen {
         // panel i sidebar
         rr(c, px, py, W, H, 10, BG);
         rr(c, px + 6, py + 6, SB, H - 12, 8, SIDE);
-        c.drawText(textRenderer, Text.literal("MenuMod").formatted(Formatting.BOLD), px + 18, py + 18, accent, false);
+        c.drawText(textRenderer, Text.literal("MenuMod").formatted(Formatting.BOLD), px + 18, py + 18, accent, true);
 
         // ikony + nazwy po lewej
         int ex = px + 12, ew = SB - 12;
         for (int i = 0; i < 4; i++) {
             int y = py + ITEM_Y0 + i * ITEM_PITCH;
             if (i != tab && hov(ex, y, ew, ITEM_H)) {
-                rr(c, ex, y, ew, ITEM_H, 8, 0x18FFFFFF);
+                rr(c, ex, y, ew, ITEM_H, 8, HOVER_ITEM);
             }
         }
 
@@ -319,13 +343,13 @@ public class MenuScreen extends Screen {
         for (int i = 0; i < 4; i++) {
             int y = py + ITEM_Y0 + i * ITEM_PITCH;
             c.drawItem(new ItemStack(ICONS[i]), ex + 7, y + 7);
-            c.drawText(textRenderer, NAMES[i], ex + 30, y + 11, i == tab ? TEXT : DIM, false);
+            c.drawText(textRenderer, NAMES[i], ex + 30, y + 11, i == tab ? TEXT : DIM, true);
         }
 
         // nagłówek treści
         int cx = cx(), cw = cw(), cy = cy();
-        c.drawText(textRenderer, Text.literal(NAMES[tab]).formatted(Formatting.BOLD), cx, py + 15, accent, false);
-        c.fill(cx, py + 28, cx + cw, py + 29, 0x22FFFFFF);
+        c.drawText(textRenderer, Text.literal(NAMES[tab]).formatted(Formatting.BOLD), cx, py + 15, accent, true);
+        c.fill(cx, py + 28, cx + cw, py + 29, DIVIDER);
 
         // treść zakładki (lekko wjeżdża od dołu)
         float te = ease(Math.min(1f, (now - tabAt) / 220f));
@@ -367,7 +391,7 @@ public class MenuScreen extends Screen {
         }
 
         c.drawText(textRenderer, "W zasięgu: " + list.size() + "   Na Twoim chunku: " + sameChunk,
-                cx, cy + 2, DIM, false);
+                cx, cy + 2, DIM, true);
 
         if (list.isEmpty()) {
             centered(c, "Nikogo nie ma w pobliżu.", cx, cy + 90, cw, DIM);
@@ -383,18 +407,18 @@ public class MenuScreen extends Screen {
             int ry = cy + 16 + i * (rowH + gap);
             rr(c, cx, ry, cw - 8, rowH, 6, hov(cx, ry, cw - 8, rowH) ? CARD_HOVER : CARD);
             PlayerSkinDrawer.draw(c, p.getSkinTextures(), cx + 5, ry + 4, 18);
-            c.drawText(textRenderer, p.getName().getString(), cx + 30, ry + 9, TEXT, false);
+            c.drawText(textRenderer, p.getName().getString(), cx + 30, ry + 9, TEXT, true);
 
             String d = Math.round(mc.player.distanceTo(p)) + " m";
             int dw = textRenderer.getWidth(d);
             int right = cx + cw - 8 - 8;
-            c.drawText(textRenderer, d, right - dw, ry + 9, DIM, false);
+            c.drawText(textRenderer, d, right - dw, ry + 9, DIM, true);
 
             if (p.getChunkPos().equals(mc.player.getChunkPos())) {
                 int chipW = textRenderer.getWidth("CHUNK") + 10;
                 int chipX = right - dw - 6 - chipW;
                 rr(c, chipX, ry + 6, chipW, 14, 7, alpha(accent, 0x66));
-                c.drawText(textRenderer, "CHUNK", chipX + 5, ry + 9, TEXT, false);
+                c.drawText(textRenderer, "CHUNK", chipX + 5, ry + 9, TEXT, true);
             }
         }
 
@@ -402,12 +426,18 @@ public class MenuScreen extends Screen {
             int trackH = visible * (rowH + gap) - gap;
             int thumbH = Math.max(14, trackH * visible / list.size());
             int thumbY = cy + 16 + (trackH - thumbH) * scroll / playersMax;
-            rr(c, cx + cw - 4, cy + 16, 3, trackH, 1, 0x22FFFFFF);
+            rr(c, cx + cw - 4, cy + 16, 3, trackH, 1, DIVIDER);
             rr(c, cx + cw - 4, thumbY, 3, thumbH, 1, alpha(accent, 0xCC));
         }
     }
 
     // ------------------------------------------------------------ zakładka: Ustawienia
+
+    private void switchRow(DrawContext c, int cx, int cw, int y, String label, boolean on) {
+        rr(c, cx, y, cw, 26, 8, hov(cx, y, cw, 26) ? CARD_HOVER : CARD);
+        c.drawText(textRenderer, label, cx + 10, y + 9, TEXT, true);
+        toggle(c, cx + cw - 44, y + 4, on);
+    }
 
     private void drawSettings(DrawContext c, int cx, int cy, int cw) {
         MenuConfig cfg = MenuConfig.I;
@@ -415,83 +445,130 @@ public class MenuScreen extends Screen {
         // kolor GUI
         int y = setRowY(0);
         rr(c, cx, y, cw, 26, 8, hov(cx, y, cw, 26) ? CARD_HOVER : CARD);
-        c.drawText(textRenderer, "Kolor GUI", cx + 10, y + 9, TEXT, false);
+        c.drawText(textRenderer, "Kolor GUI", cx + 10, y + 9, TEXT, true);
         String hx = String.format("#%06X", accent & 0xFFFFFF);
-        c.drawText(textRenderer, hx, cx + cw - 58 - textRenderer.getWidth(hx), y + 9, DIM, false);
-        rr(c, cx + cw - 52, y + 5, 42, 16, 6, 0xFF000000 | (accent & 0xFFFFFF));
+        c.drawText(textRenderer, hx, cx + cw - 58 - textRenderer.getWidth(hx), y + 9, DIM, true);
+        rr(c, cx + cw - 52, y + 5, 42, 16, 8, 0xFF000000 | (accent & 0xFFFFFF));
 
-        // zaokrąglone ramki
-        y = setRowY(1);
-        rr(c, cx, y, cw, 26, 8, hov(cx, y, cw, 26) ? CARD_HOVER : CARD);
-        c.drawText(textRenderer, "Zaokrąglone ramki", cx + 10, y + 9, TEXT, false);
-        toggle(c, cx + cw - 38, y + 6, cfg.rounded);
-
-        // dźwięki
-        y = setRowY(2);
-        rr(c, cx, y, cw, 26, 8, hov(cx, y, cw, 26) ? CARD_HOVER : CARD);
-        c.drawText(textRenderer, "Dźwięki menu", cx + 10, y + 9, TEXT, false);
-        toggle(c, cx + cw - 38, y + 6, cfg.sounds);
+        switchRow(c, cx, cw, setRowY(1), "Zaokrąglone ramki", cfg.rounded);
+        switchRow(c, cx, cw, setRowY(2), "Dźwięki menu", cfg.sounds);
+        switchRow(c, cx, cw, setRowY(3), "Tryb jasny", cfg.light);
 
         // bindy
-        c.drawText(textRenderer, "Bindy modułów", cx, bindRowY() - 14, DIM, false);
+        c.drawText(textRenderer, "Bindy modułów", cx, bindRowY() - 14, DIM, true);
         y = bindRowY();
         rr(c, cx, y, cw, 26, 8, CARD);
-        c.drawText(textRenderer, "Brak cieni", cx + 10, y + 9, TEXT, false);
+        c.drawText(textRenderer, "Brak cieni", cx + 10, y + 9, TEXT, true);
         int bx = cx + cw - 84, by = y + 3;
         boolean bh = hov(bx, by, 76, 20);
-        rr(c, bx, by, 76, 20, 6, bindingKey ? alpha(accent, 0xAA) : (bh ? 0xFF48515E : OFF));
+        rr(c, bx, by, 76, 20, 10, bindingKey ? alpha(accent, 0xAA) : (bh ? OFF_HOVER : OFF));
         String label;
         if (bindingKey) label = "naciśnij...";
         else if (cfg.noShadowsKey <= 0) label = "—";
         else label = InputUtil.Type.KEYSYM.createFromCode(cfg.noShadowsKey).getLocalizedText().getString();
-        centered(c, label, bx, by + 6, 76, TEXT);
-
-        small(c, "Klik w przycisk, potem klawisz. Backspace czyści, Esc anuluje.", cx, bindRowY() + 34, DIM, 0.8f);
-        small(c, "Dźwięk otwarcia zmienisz w config/menumod.json (openSound).", cx, bindRowY() + 46, DIM, 0.8f);
+        centered(c, label, bx, by + 6, 76, bindingKey ? WHITE : TEXT);
     }
 
     // ------------------------------------------------------------ zakładka: Mody
 
+    private void gear(DrawContext c, int gx, int gy, int col, int bg) {
+        ellipse(c, gx, gy, 5, 5, col);
+        c.fill(gx - 1, gy - 7, gx + 1, gy - 4, col);
+        c.fill(gx - 1, gy + 5, gx + 1, gy + 8, col);
+        c.fill(gx - 7, gy - 1, gx - 4, gy + 1, col);
+        c.fill(gx + 5, gy - 1, gx + 8, gy + 1, col);
+        c.fill(gx + 3, gy - 5, gx + 5, gy - 3, col);
+        c.fill(gx - 5, gy - 5, gx - 3, gy - 3, col);
+        c.fill(gx + 3, gy + 3, gx + 5, gy + 5, col);
+        c.fill(gx - 5, gy + 3, gx - 3, gy + 5, col);
+        ellipse(c, gx, gy, 2, 2, bg);
+    }
+
+    static final String[] SHADOW_MODES = {
+            "Wyłącz wszystko (bloki i byty)",
+            "Wyłącz tylko cienie bytów",
+            "Wyłącz tylko cienie bloków"
+    };
+
     private void drawMods(DrawContext c, int cx, int cy, int cw) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        boolean on = MenuConfig.I.noShadows;
+        if (modView == 1) {
+            drawShadowSettings(c, cx, cy, cw);
+            return;
+        }
+        MenuConfig cfg = MenuConfig.I;
 
-        // karta modułu
-        rr(c, cx, cy + 2, cw, 36, 8, hov(cx, cy + 2, cw, 36) ? CARD_HOVER : CARD);
-        c.drawText(textRenderer, Text.literal("Brak cieni").formatted(Formatting.BOLD), cx + 10, cy + 9, TEXT, false);
+        // karta: Brak cieni (z ikoną ustawień)
+        boolean cardHov = hov(cx, cy + 2, cw, 36);
+        rr(c, cx, cy + 2, cw, 36, 8, cardHov ? CARD_HOVER : CARD);
+        c.drawText(textRenderer, Text.literal("Brak cieni").formatted(Formatting.BOLD), cx + 10, cy + 9, TEXT, true);
         small(c, "Wyłącza cieniowanie bloków i cienie bytów", cx + 10, cy + 23, DIM, 0.8f);
-        toggle(c, cx + cw - 38, cy + 13, on);
+        int gbx = cx + cw - 80, gby = cy + 10;
+        boolean gh = hov(gbx, gby, 24, 20);
+        rr(c, gbx, gby, 24, 20, 10, gh ? OFF_HOVER : OFF);
+        gear(c, gbx + 12, gby + 10, TEXT, gh ? OFF_HOVER : OFF);
+        toggle(c, cx + cw - 44, cy + 11, cfg.noShadows);
 
-        // podgląd
-        int pw = (cw - 8) / 2, ph = 108, py2 = cy + 46;
-        String st = on ? "WYŁ." : "WŁ.";
-        int stCol = on ? 0xFFEF4444 : 0xFF22C55E;
+        // karta: Brak animacji wyciągania
+        int y2 = cy + 44;
+        rr(c, cx, y2, cw, 36, 8, hov(cx, y2, cw, 36) ? CARD_HOVER : CARD);
+        c.drawText(textRenderer, Text.literal("Brak animacji wyciągania").formatted(Formatting.BOLD), cx + 10, y2 + 7, TEXT, true);
+        small(c, "Przedmiot w ręce pojawia się od razu (kilof, miecz...)", cx + 10, y2 + 22, DIM, 0.8f);
+        toggle(c, cx + cw - 44, y2 + 9, cfg.noEquipAnim);
+    }
 
-        // --- bloki
+    private void drawShadowSettings(DrawContext c, int cx, int cy, int cw) {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        MenuConfig cfg = MenuConfig.I;
+
+        // wróć + przełącznik modułu
+        boolean bh = hov(cx, cy + 2, 60, 20);
+        rr(c, cx, cy + 2, 60, 20, 10, bh ? CARD_HOVER : CARD);
+        centered(c, "< Wróć", cx, cy + 8, 60, TEXT);
+        c.drawText(textRenderer, "Moduł", cx + cw - 44 - 6 - textRenderer.getWidth("Moduł"), cy + 8, DIM, true);
+        toggle(c, cx + cw - 44, cy + 3, cfg.noShadows);
+
+        // tryby
+        for (int i = 0; i < 3; i++) {
+            int y = cy + 28 + i * 26;
+            rr(c, cx, y, cw, 22, 8, hov(cx, y, cw, 22) ? CARD_HOVER : CARD);
+            boolean sel = cfg.shadowMode == i;
+            rr(c, cx + 8, y + 5, 12, 12, 6, sel ? accent : OFF);
+            if (sel) rr(c, cx + 11, y + 8, 6, 6, 3, WHITE);
+            c.drawText(textRenderer, SHADOW_MODES[i], cx + 28, y + 7, TEXT, true);
+        }
+
+        // podgląd (pokazuje to, co faktycznie zostanie włączone)
+        boolean blockOff = cfg.blockShadowsOff();
+        boolean entOff = cfg.entityShadowsOff();
+        int pw = (cw - 8) / 2, ph = 100, py2 = cy + 108;
+
         int x1 = cx;
         rr(c, x1, py2, pw, ph, 8, INSET);
         small(c, "Bloki", x1 + 8, py2 + 7, DIM, 0.9f);
         int mid = x1 + pw / 2;
         int base = 0x9AA6B2;
-        c.fill(mid - 24, py2 + 28, mid + 24, py2 + 41, shade(base, 1.0f));
-        c.fill(mid - 24, py2 + 42, mid - 1, py2 + 68, shade(base, on ? 1.0f : 0.80f));
-        c.fill(mid + 1, py2 + 42, mid + 24, py2 + 68, shade(base, on ? 1.0f : 0.60f));
-        c.drawText(textRenderer, "Cienie bloków:", x1 + 8, py2 + ph - 16, DIM, false);
-        c.drawText(textRenderer, st, x1 + pw - 8 - textRenderer.getWidth(st), py2 + ph - 16, stCol, false);
+        c.fill(mid - 24, py2 + 24, mid + 24, py2 + 37, shade(base, 1.0f));
+        c.fill(mid - 24, py2 + 38, mid - 1, py2 + 62, shade(base, blockOff ? 1.0f : 0.80f));
+        c.fill(mid + 1, py2 + 38, mid + 24, py2 + 62, shade(base, blockOff ? 1.0f : 0.60f));
+        c.drawText(textRenderer, "Cienie bloków:", x1 + 8, py2 + ph - 15, DIM, true);
+        String s1 = blockOff ? "WYŁ." : "WŁ.";
+        c.drawText(textRenderer, s1, x1 + pw - 8 - textRenderer.getWidth(s1), py2 + ph - 15,
+                blockOff ? 0xFFEF4444 : 0xFF22C55E, true);
 
-        // --- byty (entity)
         int x2 = cx + pw + 8;
         rr(c, x2, py2, pw, ph, 8, INSET);
         small(c, "Byty (gracz, moby)", x2 + 8, py2 + 7, DIM, 0.9f);
         int mid2 = x2 + pw / 2;
-        if (!on) {
-            ellipse(c, mid2, py2 + 70, 22, 5, 0x88000000);
+        if (!entOff) {
+            ellipse(c, mid2, py2 + 62, 22, 5, 0x88000000);
         }
         if (mc.player != null) {
-            PlayerSkinDrawer.draw(c, mc.player.getSkinTextures(), mid2 - 18, py2 + 28, 36);
+            PlayerSkinDrawer.draw(c, mc.player.getSkinTextures(), mid2 - 18, py2 + 22, 36);
         }
-        c.drawText(textRenderer, "Cienie bytów:", x2 + 8, py2 + ph - 16, DIM, false);
-        c.drawText(textRenderer, st, x2 + pw - 8 - textRenderer.getWidth(st), py2 + ph - 16, stCol, false);
+        c.drawText(textRenderer, "Cienie bytów:", x2 + 8, py2 + ph - 15, DIM, true);
+        String s2 = entOff ? "WYŁ." : "WŁ.";
+        c.drawText(textRenderer, s2, x2 + pw - 8 - textRenderer.getWidth(s2), py2 + ph - 15,
+                entOff ? 0xFFEF4444 : 0xFF22C55E, true);
     }
 
     // ------------------------------------------------------------ zakładka: Profil
@@ -526,16 +603,16 @@ public class MenuScreen extends Screen {
             rr(c, cx + 10, cy + 11, 56, 56, 6, OFF);
         }
         String name = mc.getSession().getUsername();
-        c.drawText(textRenderer, Text.literal(name).formatted(Formatting.BOLD), cx + 76, cy + 12, TEXT, false);
-        c.drawText(textRenderer, "Nick: " + name, cx + 76, cy + 26, DIM, false);
+        c.drawText(textRenderer, Text.literal(name).formatted(Formatting.BOLD), cx + 76, cy + 12, TEXT, true);
+        c.drawText(textRenderer, "Nick: " + name, cx + 76, cy + 26, DIM, true);
         long sess = (System.currentTimeMillis() - MenuModClient.SESSION_START) / 1000;
-        c.drawText(textRenderer, "Sesja: " + fmtHms(sess), cx + 76, cy + 41, TEXT, false);
-        c.drawText(textRenderer, "Dziś: " + fmtHm(days[6]) + "   Tydzień: " + fmtHm(week), cx + 76, cy + 55, DIM, false);
+        c.drawText(textRenderer, "Sesja: " + fmtHms(sess), cx + 76, cy + 41, TEXT, true);
+        c.drawText(textRenderer, "Dziś: " + fmtHm(days[6]) + "   Tydzień: " + fmtHm(week), cx + 76, cy + 55, DIM, true);
 
         // wykres: czas gry w ostatnich 7 dniach
         int gy = cy + 82;
         rr(c, cx, gy, cw, 104, 8, CARD);
-        c.drawText(textRenderer, "Czas gry — ostatnie 7 dni", cx + 10, gy + 8, DIM, false);
+        c.drawText(textRenderer, "Czas gry — ostatnie 7 dni", cx + 10, gy + 8, DIM, true);
         int slot = (cw - 28) / 7;
         int baseY = gy + 104 - 18;
         for (int i = 0; i < 7; i++) {
@@ -554,19 +631,19 @@ public class MenuScreen extends Screen {
         // tagi (miejsce na przyszłe)
         int ty = cy + 194;
         rr(c, cx, ty, cw, 30, 8, CARD);
-        c.drawText(textRenderer, "Tagi", cx + 10, ty + 11, DIM, false);
+        c.drawText(textRenderer, "Tagi", cx + 10, ty + 11, DIM, true);
         int chipX = cx + 44;
         if (cfg.tags.isEmpty()) {
             String ph = "miejsce na tagi";
             int chipW = textRenderer.getWidth(ph) + 12;
-            rr(c, chipX, ty + 7, chipW, 16, 8, 0x22FFFFFF);
-            c.drawText(textRenderer, ph, chipX + 6, ty + 11, DIM, false);
+            rr(c, chipX, ty + 7, chipW, 16, 8, DIVIDER);
+            c.drawText(textRenderer, ph, chipX + 6, ty + 11, DIM, true);
         } else {
             for (String tag : cfg.tags) {
                 int chipW = textRenderer.getWidth(tag) + 12;
                 if (chipX + chipW > cx + cw - 8) break;
                 rr(c, chipX, ty + 7, chipW, 16, 8, alpha(accent, 0x66));
-                c.drawText(textRenderer, tag, chipX + 6, ty + 11, TEXT, false);
+                c.drawText(textRenderer, tag, chipX + 6, ty + 11, TEXT, true);
                 chipX += chipW + 6;
             }
         }
@@ -576,7 +653,7 @@ public class MenuScreen extends Screen {
 
     private void drawPicker(DrawContext c, long now) {
         int ppx = ppx(), ppy = ppy();
-        rr(c, ppx - 1, ppy - 1, PW + 2, PH + 2, 9, 0xFF2A313B);
+        rr(c, ppx - 1, ppy - 1, PW + 2, PH + 2, 9, BORDER);
         rr(c, ppx, ppy, PW, PH, 8, POPUP);
 
         // pole nasycenie / jasność
@@ -588,30 +665,30 @@ public class MenuScreen extends Screen {
         mask(c, sx, sy, sw, sh, 4, POPUP);
 
         // suwak hue
-        int hx = ppx + 10, hy = ppy + 100, hw = 168, hhh = 10;
+        int hx = ppx + 10, hy = ppy + 100, hw = 168, hhh = 12;
         for (int i = 0; i < hw; i++) {
             c.fill(hx + i, hy, hx + i + 1, hy + hhh, hsv(i / (float) (hw - 1) * 0.9999f, 1f, 1f));
         }
-        mask(c, hx, hy, hw, hhh, 5, POPUP);
+        mask(c, hx, hy, hw, hhh, 6, POPUP);
 
         // znaczniki
         int mxp = sx + Math.round(hs * (sw - 1));
         int myp = sy + Math.round((1f - hv) * (sh - 1));
-        rr(c, mxp - 4, myp - 4, 9, 9, 4, TEXT);
+        rr(c, mxp - 4, myp - 4, 9, 9, 4, WHITE);
         rr(c, mxp - 3, myp - 3, 7, 7, 3, 0xFF000000 | pickRgb());
         int hxp = hx + Math.round(hh * (hw - 1));
-        rr(c, hxp - 2, hy - 2, 5, hhh + 4, 2, TEXT);
+        rr(c, hxp - 3, hy - 2, 6, hhh + 4, 3, WHITE);
 
         // pole hex
         int fx = ppx + 10, fy = ppy + 122;
         if (hexFocused) rr(c, fx - 1, fy - 1, 102, 24, 7, accent);
-        rr(c, fx, fy, 100, 22, 6, 0xFF0F1318);
+        rr(c, fx, fy, 100, 22, 6, FIELD);
         rr(c, fx + 4, fy + 4, 14, 14, 5, 0xFF000000 | pickRgb());
         String shown = "#" + hex;
-        c.drawText(textRenderer, shown, fx + 24, fy + 7, TEXT, false);
+        c.drawText(textRenderer, shown, fx + 24, fy + 7, TEXT, true);
         if (hexFocused && (now / 500) % 2 == 0 && hex.length() < 6) {
             int cxp = fx + 24 + textRenderer.getWidth(shown);
-            c.fill(cxp, fy + 6, cxp + 1, fy + 16, TEXT);
+            c.fill(cxp, fy + 6, cxp + 1, fy + 16, WHITE);
         }
 
         // przycisk Gotowe
@@ -619,7 +696,7 @@ public class MenuScreen extends Screen {
         boolean bh = hov(bx, by, 60, 22);
         int pc = 0xFF000000 | pickRgb();
         rr(c, bx, by, 60, 22, 6, bh ? mix(pc, 0xFFFFFFFF, 0.2f) : pc);
-        centered(c, "Gotowe", bx, by + 7, 60, TEXT);
+        centered(c, "Gotowe", bx, by + 7, 60, WHITE);
     }
 
     // ------------------------------------------------------------ input
@@ -644,7 +721,7 @@ public class MenuScreen extends Screen {
         if (pickerOpen) {
             int ppx = ppx(), ppy = ppy();
             if (hit(x, y, ppx + 118, ppy + 122, 60, 22)) {
-                play(cfg.clickSound, 1.2f);
+                play(CLICK_SOUND, 1.2f);
                 closePicker(true);
                 return true;
             }
@@ -680,7 +757,8 @@ public class MenuScreen extends Screen {
                     tab = i;
                     tabAt = Util.getMeasuringTimeMs();
                     scroll = 0;
-                    play(cfg.clickSound, 1.0f);
+                    modView = 0;
+                    play(CLICK_SOUND, 1.0f);
                 }
                 return true;
             }
@@ -688,35 +766,78 @@ public class MenuScreen extends Screen {
 
         if (tab == 1) {
             if (hit(x, y, cx, setRowY(0), cw, 26)) {
-                play(cfg.clickSound, 1.0f);
+                play(CLICK_SOUND, 1.0f);
                 openPicker();
                 return true;
             }
             if (hit(x, y, cx, setRowY(1), cw, 26)) {
                 cfg.rounded = !cfg.rounded;
                 MenuConfig.save();
-                play(cfg.clickSound, 1.0f);
+                play(CLICK_SOUND, 1.0f);
                 return true;
             }
             if (hit(x, y, cx, setRowY(2), cw, 26)) {
                 cfg.sounds = !cfg.sounds;
                 MenuConfig.save();
-                play(cfg.clickSound, 1.0f);
+                play(CLICK_SOUND, 1.0f);
+                return true;
+            }
+            if (hit(x, y, cx, setRowY(3), cw, 26)) {
+                cfg.light = !cfg.light;
+                MenuConfig.save();
+                play(CLICK_SOUND, 1.0f);
                 return true;
             }
             if (hit(x, y, cx + cw - 84, bindRowY() + 3, 76, 20)) {
                 bindingKey = true;
-                play(cfg.clickSound, 1.0f);
+                play(CLICK_SOUND, 1.0f);
                 return true;
             }
         }
 
-        if (tab == 2 && hit(x, y, cx, cy + 2, cw, 36)) {
-            cfg.noShadows = !cfg.noShadows;
-            MenuConfig.save();
-            NoShadows.apply(MinecraftClient.getInstance());
-            play(cfg.clickSound, 1.0f);
-            return true;
+        if (tab == 2) {
+            if (modView == 0) {
+                if (hit(x, y, cx + cw - 80, cy + 10, 24, 20)) {
+                    modView = 1;
+                    play(CLICK_SOUND, 1.0f);
+                    return true;
+                }
+                if (hit(x, y, cx, cy + 2, cw, 36)) {
+                    cfg.noShadows = !cfg.noShadows;
+                    MenuConfig.save();
+                    NoShadows.apply(MinecraftClient.getInstance());
+                    play(CLICK_SOUND, 1.0f);
+                    return true;
+                }
+                if (hit(x, y, cx, cy + 44, cw, 36)) {
+                    cfg.noEquipAnim = !cfg.noEquipAnim;
+                    MenuConfig.save();
+                    play(CLICK_SOUND, 1.0f);
+                    return true;
+                }
+            } else {
+                if (hit(x, y, cx, cy + 2, 60, 20)) {
+                    modView = 0;
+                    play(CLICK_SOUND, 1.0f);
+                    return true;
+                }
+                if (hit(x, y, cx + cw - 44, cy + 3, 34, 18)) {
+                    cfg.noShadows = !cfg.noShadows;
+                    MenuConfig.save();
+                    NoShadows.apply(MinecraftClient.getInstance());
+                    play(CLICK_SOUND, 1.0f);
+                    return true;
+                }
+                for (int i = 0; i < 3; i++) {
+                    if (hit(x, y, cx, cy + 28 + i * 26, cw, 22)) {
+                        cfg.shadowMode = i;
+                        MenuConfig.save();
+                        if (cfg.noShadows) NoShadows.apply(MinecraftClient.getInstance());
+                        play(CLICK_SOUND, 1.0f);
+                        return true;
+                    }
+                }
+            }
         }
 
         return super.mouseClicked(mouseX, mouseY, button);

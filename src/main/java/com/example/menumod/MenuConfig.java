@@ -17,18 +17,29 @@ public class MenuConfig {
     public int guiColor = 0xFF3B82F6;
     public boolean rounded = true;
 
-    // dźwięki: wpisz tu dowolne ID dźwięku, np. "minecraft:entity.experience_orb.pickup"
+    public boolean light = false; // tryb jasny
     public boolean sounds = true;
-    public String openSound = "minecraft:ui.toast.in";
-    public String clickSound = "minecraft:ui.button.click";
 
     // moduły
     public boolean noShadows = false;
     public int noShadowsKey = -1; // kod klawisza GLFW, -1 = brak
+    // 0 = wyłącz cienie bloków i bytów, 1 = tylko cienie bytów, 2 = tylko cienie bloków
+    public int shadowMode = 0;
+    public boolean noEquipAnim = false; // brak animacji wyciągania przedmiotu
 
     // profil
     public List<String> tags = new ArrayList<>();
     public Map<String, Long> playSeconds = new LinkedHashMap<>(); // "2026-10-21" -> sekundy
+
+    /** Czy ściany bloków mają być bez cieniowania. */
+    public boolean blockShadowsOff() {
+        return noShadows && shadowMode != 1;
+    }
+
+    /** Czy cienie bytów (gracz, moby) mają być wyłączone. */
+    public boolean entityShadowsOff() {
+        return noShadows && shadowMode != 2;
+    }
 
     public static MenuConfig I = new MenuConfig();
 
@@ -45,8 +56,6 @@ public class MenuConfig {
         }
         if (I.tags == null) I.tags = new ArrayList<>();
         if (I.playSeconds == null) I.playSeconds = new LinkedHashMap<>();
-        if (I.openSound == null) I.openSound = "minecraft:ui.toast.in";
-        if (I.clickSound == null) I.clickSound = "minecraft:ui.button.click";
         I.guiColor |= 0xFF000000;
 
         // wywal wpisy starsze niż 90 dni

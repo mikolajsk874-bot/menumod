@@ -6,9 +6,8 @@ import net.minecraft.text.Text;
 public class NoShadows {
     /** Włącza/wyłącza cienie bytów (gracz, moby) i wygładzone oświetlenie, potem przebudowuje chunki. */
     public static void apply(MinecraftClient c) {
-        boolean off = MenuConfig.I.noShadows;
-        c.options.getEntityShadows().setValue(!off);
-        c.options.getAo().setValue(!off);
+        c.options.getEntityShadows().setValue(!MenuConfig.I.entityShadowsOff());
+        c.options.getAo().setValue(!MenuConfig.I.blockShadowsOff());
         if (c.worldRenderer != null) {
             c.worldRenderer.reload();
         }

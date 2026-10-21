@@ -13,7 +13,7 @@ public class ClientWorldMixin {
     // Każda ściana bloku ma tę samą jasność, więc znika cieniowanie ścian.
     @Inject(method = "getBrightness", at = @At("HEAD"), cancellable = true)
     private void menumod$flat(Direction direction, boolean shaded, CallbackInfoReturnable<Float> cir) {
-        if (MenuConfig.I.noShadows) {
+        if (MenuConfig.I.blockShadowsOff()) {
             cir.setReturnValue(1.0f);
         }
     }
