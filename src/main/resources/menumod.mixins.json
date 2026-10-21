@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "com.example.menumod.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ClientWorldMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

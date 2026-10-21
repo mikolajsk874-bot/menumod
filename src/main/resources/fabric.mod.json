@@ -2,16 +2,22 @@
   "schemaVersion": 1,
   "id": "menumod",
   "version": "${version}",
-  "name": "Menu Mod",
-  "description": "Proste menu GUI z zakładkami Mody i Profil.",
-  "authors": ["Ty"],
+  "name": "MenuMod",
+  "description": "Menu z animacją, ustawieniami GUI i modem Brak cieni.",
+  "authors": ["mikolajsk874-bot"],
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
-    "client": ["pl.menumod.MenuModClient"]
+    "client": ["com.example.menumod.MenuModClient"]
   },
+  "mixins": [
+    {
+      "config": "menumod.mixins.json",
+      "environment": "client"
+    }
+  ],
   "depends": {
-    "fabricloader": ">=0.16.0",
+    "fabricloader": ">=0.16.10",
     "minecraft": "~1.21.4",
     "java": ">=21",
     "fabric-api": "*"
